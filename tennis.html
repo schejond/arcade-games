@@ -1,0 +1,263 @@
+<html>
+	<canvas id="tennisGame" width="800" height="600">
+	</canvas>
+
+	<script>
+		let canvas;
+		let canvasContext;
+		const FPS = 45;
+		let intervalId;
+		let showTitleScreen = true;
+		let showWinningScreen = false;
+		// object fixed sizes
+		const PADDLE_WIDTH = 10;
+		const PADDLE_HEIGHT = 100;
+		const COMPUTER_SPEED = 4;
+		const COMPUTER_PADDLE_VARIANCE = 35;
+		// paddle coordinates
+		let leftPaddleY = 250;
+		let rightPaddleY = 250;
+		// ball variables
+		const BALL_RADIUS = 10;
+		const BALL_BASE_X_SPEED = 5;
+		const BALL_BASE_Y_SPEED = 2;
+		let ball = {
+			x: 50,
+			y: 50,
+			speedX: BALL_BASE_X_SPEED,
+			speedY: BALL_BASE_Y_SPEED
+		}
+		// score variables
+		let leftPlayerScore = 0;
+		let rightPlayerScore = 0;
+		const WINNING_SCORE = 3;
+
+		window.onload = function() {
+			// initialize canvas
+			canvas = document.getElementById('tennisGame');
+			canvasContext = canvas.getContext('2d');
+			canvasContext.font = "30px Arial";
+			canvasContext.textAlign = "center";
+
+			this.resetBall();
+
+			// initial draw
+			this.drawEverything();
+
+			canvas.addEventListener('mousemove', event => {
+				const mousePos = calculateMousePos(event);
+				if (mousePos.y + PADDLE_HEIGHT/2 >= canvas.height) {
+					leftPaddleY = canvas.height - PADDLE_HEIGHT;
+				} else if (mousePos.y - PADDLE_HEIGHT/2 <= 0) {
+					leftPaddleY = 0;
+				} else {
+					leftPaddleY = mousePos.y - PADDLE_HEIGHT/2;
+				}
+			});
+
+			canvas.addEventListener('mousedown', event => {
+				if (showTitleScreen || showWinningScreen) {
+					this.resetScore();
+					this.resetBall();
+					// start game
+					intervalId = runGame();
+					showTitleScreen = false;
+					showWinningScreen = false;
+				}
+			});
+		}
+
+		function runGame() {
+			return setInterval( () => {
+				if (showTitleScreen || showWinningScreen) {
+					return;
+				}
+				this.drawEverything();
+				this.moveBall();
+				this.computerMovement();
+			}, 1000/FPS);
+		}
+
+		function computerMovement() {
+			if (ball.speedX > 0) {
+				const rightPaddleCenter = rightPaddleY + PADDLE_HEIGHT/2;
+				if (rightPaddleCenter < ball.y - COMPUTER_PADDLE_VARIANCE) {
+					rightPaddleY += COMPUTER_SPEED;
+				} else if (rightPaddleCenter > ball.y + COMPUTER_PADDLE_VARIANCE) {
+					rightPaddleY -= COMPUTER_SPEED;
+				}
+			}	
+		}
+
+		function drawEverything() {
+			// background
+			this.drawRectangle(0, 0, canvas.width, canvas.height, 'black');
+			this.drawNet();
+			// left padle
+			this.drawRectangle(0, leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, 'white');
+			// right padle
+			this.drawRectangle(canvas.width - PADDLE_WIDTH, rightPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT, 'white');
+			// ball
+			this.drawCircle(ball.x, ball.y, BALL_RADIUS, 0, 2*Math.PI, 'blue');
+
+			if (showTitleScreen) {
+				this.drawInfoBoard();
+				this.printTitle();	
+			}
+
+			if (showWinningScreen) {
+				this.drawInfoBoard();
+				this.printWinningScreen()
+			}
+
+			this.drawPlayerScores();
+		}
+
+		function drawInfoBoard() {
+			this.drawRectangle(canvas.width/2 - 180, canvas.height/2 - 90, 360, 160, 'white');
+			this.drawRectangle(canvas.width/2 - 175, canvas.height/2 - 85, 350, 150, 'black');
+		}
+
+		function printTitle() {
+			canvasContext.fillStyle = 'white';
+			canvasContext.fillText('Arcade tennis by O.S.', canvas.width/2, canvas.height/2 - 20);
+
+			canvasContext.fillStyle = 'green';
+			canvasContext.font = "20px Arial";
+			canvasContext.fillText('Click to play', canvas.width/2, canvas.height/2 + 20);
+			canvasContext.font = "30px Arial";
+		}
+
+		function printWinningScreen() {
+			canvasContext.fillStyle = leftPlayerScore > rightPlayerScore ? 'green' : 'red';
+			const winningMsg = 'Player ' + (leftPlayerScore > rightPlayerScore ? '1' : '2') + ' has won!';
+			canvasContext.fillText(winningMsg, canvas.width/2, canvas.height/2 - 20);
+
+			canvasContext.fillStyle = 'pink';
+			canvasContext.font = "20px Arial";
+			canvasContext.fillText('Click to play again', canvas.width/2, canvas.height/2 + 20);
+			canvasContext.font = "30px Arial";
+		}
+
+		function drawRectangle(x, y, width, height, color = 'black') {
+			canvasContext.fillStyle = color;
+			canvasContext.fillRect(x, y, width, height, color);
+		}
+
+		function drawCircle(x, y, radius, radiantStart, radiantEnd, color = 'white') {
+			canvasContext.fillStyle = color;
+			canvasContext.beginPath();
+			canvasContext.arc(x, y, radius, radiantStart, radiantEnd);
+			canvasContext.fill();
+		}
+
+		function drawNet() {
+			const netWidth = 2;
+			const netHeight = 20;
+			for (let i = 10 ; i < canvas.height ; i += 40) {
+				drawRectangle(canvas.width/2 - netWidth/2, i, netWidth, netHeight, 'white');
+			}
+		}
+
+		function drawPlayerScores() {
+			canvasContext.fillStyle = 'white';
+			canvasContext.fillText('Player 1', 200, 80);
+			canvasContext.fillText('Player 2', 600, 80);
+			canvasContext.fillText(leftPlayerScore, 200, 130);
+			canvasContext.fillText(rightPlayerScore, 600, 130);
+		}
+
+		function moveBall() {
+			ball.x += ball.speedX;
+			ball.y += ball.speedY;
+			// if ball hits left paddle
+			if (ball.x - BALL_RADIUS <= PADDLE_WIDTH && leftPaddleY <= ball.y && ball.y <= leftPaddleY + PADDLE_HEIGHT) {
+				ball.speedX = -ball.speedX;
+
+				const deltaY = ball.y - (leftPaddleY + PADDLE_HEIGHT/2);
+				ball.speedY = 0.30 * deltaY;
+				return;
+			}
+
+			// if ball hits right paddle
+			if (ball.x + BALL_RADIUS >= canvas.width - PADDLE_WIDTH && rightPaddleY <= ball.y && ball.y <= rightPaddleY + PADDLE_HEIGHT) {
+				ball.speedX = -ball.speedX;
+
+				const deltaY = ball.y - (rightPaddleY + PADDLE_HEIGHT/2);
+				ball.speedY = 0.30 * deltaY;
+				return;
+			}
+
+			if (ball.x - BALL_RADIUS < 0) {
+				rightPlayerScore++;
+				this.pauseAndRestartGame();
+			}
+
+			if (ball.x + BALL_RADIUS > canvas.width) {
+				leftPlayerScore++;
+				
+				this.pauseAndRestartGame();
+			}
+
+			if (ball.y - BALL_RADIUS <= 0 || ball.y + BALL_RADIUS >= canvas.height) {
+				ball.speedY = -ball.speedY;
+			}
+		}
+
+		function calculateMousePos(event) {
+			let rect = canvas.getBoundingClientRect();
+			let root = document.documentElement;
+			let mouseX = event.clientX - rect.left - root.scrollLeft;
+			let mouseY = event.clientY - rect.top - root.scrollTop;
+			return {
+				x: mouseX,
+				y: mouseY
+			};
+		}
+
+		function resetBall(resetBallXSpeed = true) {
+			ball.x = canvas.width/2;
+			ball.y = canvas.height/2;
+			if (resetBallXSpeed) {
+				ball.speedX = BALL_BASE_X_SPEED;
+			}
+			ball.speedY = BALL_BASE_Y_SPEED;
+		}
+
+		function pauseAndRestartGame() {
+			// check if one of the players has won
+			if (leftPlayerScore >= WINNING_SCORE || rightPlayerScore >= WINNING_SCORE) {
+				this.endGame();
+				return;
+			}
+			clearInterval(intervalId);
+			setTimeout( () => {
+				this.resetBall(false);
+				intervalId = runGame();
+			}, 1000);
+		}
+
+		function endGame() {
+			clearInterval(intervalId);
+			showWinningScreen = true;
+			this.drawEverything();
+		}
+
+		function resetScore() {
+			leftPlayerScore = 0;
+			rightPlayerScore = 0;
+		}
+	</script>
+
+	<br/>
+	<br/>
+
+	<div style="font-size: 15px;">
+		<b>
+			Made by:
+			<a href="https://github.com/schejond/arcade-games" target="_blank">
+				Ondřej Schejbal
+			</a>
+		</b>
+	</div>
+</html>
